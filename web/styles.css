@@ -1,0 +1,168 @@
+@import url("https://fonts.googleapis.com/css2?family=Chonburi&family=Space+Grotesk:wght@400;600&display=swap");
+
+:root {
+  color-scheme: only light;
+  --bg: #e6f1ff;
+  --ink: #1a2735;
+  --panel: #f6f1e8;
+  --accent: #f25a38;
+  --accent-2: #1c7f64;
+  --ice: #b7daf5;
+  --shadow: rgba(14, 38, 63, 0.16);
+  --font-body: "Space Grotesk", "Avenir Next", "Trebuchet MS", sans-serif;
+  --font-display: "Chonburi", "Georgia", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  background: radial-gradient(circle at top, #fff6e7, var(--bg)) fixed;
+  color: var(--ink);
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 24px 36px;
+}
+
+.topbar {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  font-size: 11px;
+  color: var(--accent-2);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3vw, 42px);
+}
+
+p {
+  margin: 0;
+  max-width: 520px;
+}
+
+.status-card {
+  min-width: 220px;
+  background: var(--panel);
+  padding: 16px 18px;
+  border-radius: 18px;
+  box-shadow: 0 14px 28px var(--shadow);
+  display: grid;
+  gap: 10px;
+  font-weight: 600;
+}
+
+#status {
+  font-size: 14px;
+  min-height: 18px;
+}
+
+progress {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #e0e8f3;
+}
+
+progress::-webkit-progress-bar {
+  background: #e0e8f3;
+}
+
+progress::-webkit-progress-value {
+  background: var(--accent);
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid rgba(26, 39, 53, 0.15);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+.stage {
+  margin-top: 24px;
+  background: linear-gradient(140deg, #ffffff 0%, #e1f0ff 55%, #c3dcf7 100%);
+  border-radius: 24px;
+  padding: 18px;
+  box-shadow: 0 18px 32px var(--shadow);
+}
+
+.canvas-frame {
+  border-radius: 18px;
+  border: 3px solid rgba(14, 38, 63, 0.2);
+  background: linear-gradient(180deg, #a7d2f5 0%, #dfefff 100%);
+  overflow: hidden;
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000000;
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.controls button {
+  background: #ffffff;
+  border: 2px solid transparent;
+  padding: 10px 16px;
+  border-radius: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border 0.2s ease;
+}
+
+.controls button:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 12px 20px rgba(14, 38, 63, 0.18);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 22px 18px 28px;
+  }
+}
+
+@media (max-width: 600px) {
+  .topbar {
+    flex-direction: column;
+  }
+
+  .stage {
+    padding: 12px;
+  }
+}

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pingus Web</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <div class="title">
+          <div class="kicker">GPL Source Port</div>
+          <h1>Pingus Web</h1>
+          <p>
+            Official Pingus sources compiled to WebAssembly. First load takes a minute
+            while the assets are cached.
+          </p>
+        </div>
+        <div class="status-card">
+          <div id="status">Preparing...</div>
+          <progress id="progress" value="0" max="100" hidden></progress>
+          <div id="spinner" class="spinner" aria-hidden="true"></div>
+        </div>
+      </header>
+
+      <main class="stage">
+        <div class="canvas-frame">
+          <canvas id="canvas" tabindex="-1"></canvas>
+        </div>
+        <div class="controls">
+          <button id="fullscreen">Fullscreen</button>
+          <button id="reload">Reload</button>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      var statusElement = document.getElementById("status");
+      var progressElement = document.getElementById("progress");
+      var spinnerElement = document.getElementById("spinner");
+      var Module = {
+        preRun: [],
+        postRun: [],
+        print: (function() {
+          return function(text) {
+            if (text) {
+              console.log(text);
+            }
+            if (statusElement) {
+              statusElement.textContent = text;
+            }
+          };
+        })(),
+        printErr: function(text) {
+          if (text) {
+            console.error(text);
+          }
+        },
+        canvas: (function() {
+          var canvas = document.getElementById("canvas");
+          canvas.addEventListener("webglcontextlost", function(event) {
+            event.preventDefault();
+            statusElement.textContent = "WebGL context lost. Reload the page.";
+          }, false);
+          return canvas;
+        })(),
+        setStatus: function(text) {
+          if (!statusElement) {
+            return;
+          }
+          if (!Module.setStatus.last) {
+            Module.setStatus.last = { time: Date.now(), text: "" };
+          }
+          if (text === Module.setStatus.last.text) {
+            return;
+          }
+          var match = text.match(/\((\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)\)/);
+          if (match) {
+            progressElement.hidden = false;
+            spinnerElement.hidden = false;
+            progressElement.value = parseFloat(match[1]) * 100;
+            progressElement.max = parseFloat(match[2]) * 100;
+            statusElement.textContent = text.replace(match[0], "");
+          } else {
+            progressElement.hidden = true;
+            spinnerElement.hidden = true;
+            statusElement.textContent = text;
+          }
+          Module.setStatus.last.text = text;
+        },
+        monitorRunDependencies: function(left) {
+          Module.totalDependencies = Math.max(Module.totalDependencies || 0, left);
+          Module.setStatus(left ? "Downloading assets... (" + (Module.totalDependencies - left) + "/" + Module.totalDependencies + ")" : "Ready");
+        }
+      };
+
+      function initIdbfs() {
+        var idbfs = (typeof IDBFS !== "undefined") ? IDBFS : (Module && Module.IDBFS);
+        if (typeof FS === "undefined" || !idbfs) {
+          console.warn("IDBFS unavailable");
+          return;
+        }
+
+        var userDir = "/home/web_user/.pingus";
+        var ensureDir = function(path) {
+          try {
+            FS.mkdir(path);
+          } catch (e) {
+          }
+        };
+
+        ensureDir("/home");
+        ensureDir("/home/web_user");
+        ensureDir(userDir);
+
+        try {
+          FS.mount(idbfs, {}, userDir);
+        } catch (e) {
+          console.warn("IDBFS mount failed", e);
+          return;
+        }
+
+        var syncInFlight = false;
+        Module._pingusSyncfs = function(populate, reason) {
+          if (syncInFlight) {
+            return;
+          }
+          syncInFlight = true;
+          FS.syncfs(!!populate, function(err) {
+            syncInFlight = false;
+            if (err) {
+              console.error("[idbfs]", reason || "sync", err);
+            }
+          });
+        };
+
+        Module._pingusSyncfs(true, "populate");
+      }
+
+      Module.preRun.push(initIdbfs);
+
+      function schedulePersist(reason) {
+        if (Module._pingusSyncfs) {
+          Module._pingusSyncfs(false, reason);
+        }
+      }
+
+      window.addEventListener("visibilitychange", function() {
+        if (document.visibilityState === "hidden") {
+          schedulePersist("visibility");
+        }
+      });
+      window.addEventListener("beforeunload", function() {
+        schedulePersist("unload");
+      });
+
+      window.onerror = function() {
+        Module.setStatus("Exception thrown, see console");
+        spinnerElement.hidden = true;
+      };
+
+      document.getElementById("fullscreen").addEventListener("click", function() {
+        if (Module.requestFullscreen) {
+          Module.requestFullscreen(true, false);
+        }
+      });
+      document.getElementById("reload").addEventListener("click", function() {
+        window.location.reload();
+      });
+    </script>
+    {{{ SCRIPT }}}
+  </body>
+</html>

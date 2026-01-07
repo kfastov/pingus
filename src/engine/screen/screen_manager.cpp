@@ -17,7 +17,12 @@
 #include "engine/screen/screen_manager.hpp"
 
 #include <iostream>
+#include <exception>
 #include <utility>
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
 
 #include <logmich/log.hpp>
 
@@ -87,7 +92,8 @@ ScreenManager::ScreenManager(pingus::input::Manager& arg_input_manager,
   screens(),
   mouse_pos(),
   record_input(false),
-  playback_input(false)
+  playback_input(false),
+  last_ticks(0)
 {
   assert(instance_ == nullptr);
   instance_ = this;
@@ -106,69 +112,110 @@ ScreenManager::display()
 {
   show_software_cursor(globals::software_cursor);
 
-  Uint32 last_ticks = SDL_GetTicks();
-  float previous_frame_time;
-  std::vector<pingus::input::Event> events;
+  last_ticks = SDL_GetTicks();
 
+#ifdef __EMSCRIPTEN__
+  emscripten_set_main_loop_arg(
+    [](void* self) {
+      static_cast<ScreenManager*>(self)->tick();
+    },
+    this, 0, 1);
+#else
   while (!screens.empty())
   {
-    events.clear();
-
-    // Get time and update pingus::input::Events
-    if (playback_input)
-    {
-      // Get Time
-      read(std::cin, previous_frame_time);
-
-      // Update InputManager so that SDL_QUIT and stuff can be
-      // handled, even if the basic events are taken from record
-      input_manager.update(previous_frame_time);
-      input_controller->clear_events();
-      read_events(std::cin, events);
-    }
-    else
-    {
-      // Get Time
-      Uint32 ticks = SDL_GetTicks();
-      previous_frame_time  = float(ticks - last_ticks)/1000.0f;
-      last_ticks = ticks;
-
-      // Update InputManager and get Events
-      process_events();
-      input_manager.update(previous_frame_time);
-      input_controller->poll_events(events);
-    }
-
-    if (record_input)
-    {
-      write(std::cerr, previous_frame_time);
-      write_events(std::cerr, events);
-    }
-
-    if (globals::software_cursor)
-      cursor.update(previous_frame_time);
-
-    // previous frame took more than one second
-    if (previous_frame_time > 1.0f)
-    {
-      if (globals::developer_mode)
-        log_warn("ScreenManager: previous frame took longer than 1 second ({} sec.), ignoring and doing frameskip", previous_frame_time);
-    }
-    else
-    {
-      update(previous_frame_time, events);
-
-      // cap the framerate at the desired value
-      // figure out how long this frame took
-      float current_frame_time = float(SDL_GetTicks() - last_ticks) / 1000.0f;
-      // idly delay if this frame didn't last long enough to
-      // achieve <desired_fps> frames per second
-      if (current_frame_time < 1.0f / globals::desired_fps) {
-        Uint32 sleep_time = static_cast<Uint32>(1000 *((1.0f / globals::desired_fps) - current_frame_time));
-        SDL_Delay(sleep_time);
-      }
-    }
+    tick();
   }
+#endif
+}
+
+void
+ScreenManager::tick()
+{
+#ifdef __EMSCRIPTEN__
+  try
+  {
+#endif
+  if (screens.empty())
+  {
+#ifdef __EMSCRIPTEN__
+    emscripten_cancel_main_loop();
+#endif
+    return;
+  }
+
+  float previous_frame_time;
+  std::vector<pingus::input::Event> events;
+  events.clear();
+
+  // Get time and update pingus::input::Events
+  if (playback_input)
+  {
+    // Get Time
+    read(std::cin, previous_frame_time);
+
+    // Update InputManager so that SDL_QUIT and stuff can be
+    // handled, even if the basic events are taken from record
+    input_manager.update(previous_frame_time);
+    input_controller->clear_events();
+    read_events(std::cin, events);
+  }
+  else
+  {
+    // Get Time
+    Uint32 ticks = SDL_GetTicks();
+    previous_frame_time  = float(ticks - last_ticks) / 1000.0f;
+    last_ticks = ticks;
+
+    // Update InputManager and get Events
+    process_events();
+    input_manager.update(previous_frame_time);
+    input_controller->poll_events(events);
+  }
+
+  if (record_input)
+  {
+    write(std::cerr, previous_frame_time);
+    write_events(std::cerr, events);
+  }
+
+  if (globals::software_cursor)
+    cursor.update(previous_frame_time);
+
+  // previous frame took more than one second
+  if (previous_frame_time > 1.0f)
+  {
+    if (globals::developer_mode)
+      log_warn("ScreenManager: previous frame took longer than 1 second ({} sec.), ignoring and doing frameskip", previous_frame_time);
+  }
+  else
+  {
+    update(previous_frame_time, events);
+
+#ifndef __EMSCRIPTEN__
+    // cap the framerate at the desired value
+    // figure out how long this frame took
+    float current_frame_time = float(SDL_GetTicks() - last_ticks) / 1000.0f;
+    // idly delay if this frame didn't last long enough to
+    // achieve <desired_fps> frames per second
+    if (current_frame_time < 1.0f / globals::desired_fps) {
+      Uint32 sleep_time = static_cast<Uint32>(1000 *((1.0f / globals::desired_fps) - current_frame_time));
+      SDL_Delay(sleep_time);
+    }
+#endif
+  }
+#ifdef __EMSCRIPTEN__
+  }
+  catch (std::exception const& err)
+  {
+    log_error("Unhandled exception in main loop: {}", err.what());
+    emscripten_cancel_main_loop();
+  }
+  catch (...)
+  {
+    log_error("Unhandled non-standard exception in main loop");
+    emscripten_cancel_main_loop();
+  }
+#endif
 }
 
 void

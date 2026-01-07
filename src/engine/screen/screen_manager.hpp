@@ -17,6 +17,7 @@
 #ifndef HEADER_PINGUS_ENGINE_SCREEN_SCREEN_MANAGER_HPP
 #define HEADER_PINGUS_ENGINE_SCREEN_SCREEN_MANAGER_HPP
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 #include <geom/fwd.hpp>
@@ -53,6 +54,7 @@ private:
 
   bool record_input;
   bool playback_input;
+  std::uint32_t last_ticks;
 
 public:
   ScreenManager(pingus::input::Manager& input_manager,
@@ -86,6 +88,7 @@ public:
 
 private:
   void process_events();
+  void tick();
 
   /** FadeOver test*/
   void fade_over(ScreenPtr const& old_screen, ScreenPtr const& new_screen);

@@ -31,6 +31,7 @@
 #include "pingus/screens/story_screen.hpp"
 #include "pingus/worldmap/worldmap_screen.hpp"
 #include "pingus/stat_manager.hpp"
+#include <logmich/log.hpp>
 
 namespace pingus {
 
@@ -110,19 +111,30 @@ PingusMenu::do_quit()
 void
 PingusMenu::do_start(const std::string &filename)
 { // Start the story or worldmap mode
-  pingus::sound::PingusSound::play_sound ("letsgo");
-
-  std::shared_ptr<pingus::worldmap::WorldmapScreen> worldmap_screen = std::make_shared<pingus::worldmap::WorldmapScreen>();
-  worldmap_screen->load(Pathname(filename, Pathname::DATA_PATH));
-  ScreenManager::instance()->push_screen(worldmap_screen);
-
-  bool story_seen = false;
-  StatManager::instance()->get_bool("tutorial-startstory-seen", story_seen); // FIXME: Hardcoding tutorial is evil
-  if (!story_seen)
+  try
   {
-    auto doc = ReaderDocument::from_file(Pathname("stories/tutorial_intro.story", Pathname::DATA_PATH).get_sys_path());
-    ScreenManager::instance()->push_screen(std::make_shared<StoryScreen>(doc.get_mapping()));
-    StatManager::instance()->set_bool("tutorial-startstory-seen", true);
+    pingus::sound::PingusSound::play_sound ("letsgo");
+
+    std::shared_ptr<pingus::worldmap::WorldmapScreen> worldmap_screen = std::make_shared<pingus::worldmap::WorldmapScreen>();
+    worldmap_screen->load(Pathname(filename, Pathname::DATA_PATH));
+    ScreenManager::instance()->push_screen(worldmap_screen);
+
+    bool story_seen = false;
+    StatManager::instance()->get_bool("tutorial-startstory-seen", story_seen); // FIXME: Hardcoding tutorial is evil
+    if (!story_seen)
+    {
+      auto doc = ReaderDocument::from_file(Pathname("stories/tutorial_intro.story", Pathname::DATA_PATH).get_sys_path());
+      ScreenManager::instance()->push_screen(std::make_shared<StoryScreen>(doc.get_mapping()));
+      StatManager::instance()->set_bool("tutorial-startstory-seen", true);
+    }
+  }
+  catch (std::exception const& err)
+  {
+    log_error("Failed to start story: {}", err.what());
+  }
+  catch (...)
+  {
+    log_error("Failed to start story: unknown error");
   }
 }
 

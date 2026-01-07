@@ -22,8 +22,13 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <cstdio>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef __EMSCRIPTEN__
+#  include <emscripten/emscripten.h>
+#endif
 
 #ifdef __APPLE__
 #include <CoreFoundation/CFLocale.h>
@@ -37,7 +42,9 @@
 #  include <sys/types.h>
 #  include <unistd.h>
 #  include <errno.h>
-#  include <xdg.h>
+#  ifndef __EMSCRIPTEN__
+#    include <xdg.h>
+#  endif
 #else /* _WIN32 */
 #  define NOGDI
 #  include <windows.h>
@@ -321,6 +328,8 @@ System::find_userdir()
     raise_exception(std::runtime_error, "Environment variable $HOME not set, fix that and start again.");
   }
 
+#elif defined(__EMSCRIPTEN__)
+  return "/home/web_user/.pingus/";
 #else /* !WIN32 */
   // If ~/.pingus/ exist, use that for backward compatibility reasons,
   // if it does not, use $XDG_CONFIG_HOME, see:
@@ -722,6 +731,36 @@ System::write_file(std::string const& filename, std::string const& content)
   // FIXME: not save
   std::ofstream out(filename);
   out.write(content.data(), content.size());
+#elif defined(__EMSCRIPTEN__)
+  FILE* out = fopen(filename.c_str(), "wb");
+  if (!out)
+  {
+    log_error("System::write_file: open failed for {} errno={} {}", filename, errno, strerror(errno));
+    raise_exception(std::runtime_error, filename << ": " << strerror(errno));
+  }
+  if (!content.empty())
+  {
+    size_t written = fwrite(content.data(), 1, content.size(), out);
+    if (written != content.size())
+    {
+      log_error("System::write_file: write failed for {} ({} of {}) errno={} {}",
+                filename, written, content.size(), errno, strerror(errno));
+      fclose(out);
+      raise_exception(std::runtime_error, filename << ": failed to write data");
+    }
+  }
+  if (fclose(out) != 0)
+  {
+    log_error("System::write_file: close failed for {} errno={} {}", filename, errno, strerror(errno));
+    raise_exception(std::runtime_error, filename << ": " << strerror(errno));
+  }
+#  if defined(__EMSCRIPTEN__)
+  EM_ASM({
+    if (typeof Module !== "undefined" && Module._pingusSyncfs) {
+      Module._pingusSyncfs(false, "write_file");
+    }
+  });
+#  endif
 #else
   // build the filename: "/home/foo/outfile.pngXXXXXX"
   std::string tmpfile_str = filename + "XXXXXX";

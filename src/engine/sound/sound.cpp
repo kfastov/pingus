@@ -21,7 +21,11 @@
 #include <logmich/log.hpp>
 
 #include "engine/sound/sound_dummy.hpp"
+#if defined(PINGUS_WEB_SOUND)
+#include "engine/sound/sound_sdl_mixer.hpp"
+#else
 #include "engine/sound/sound_real.hpp"
+#endif
 #include "pingus/globals.hpp"
 #include "pingus/path_manager.hpp"
 
@@ -34,6 +38,15 @@ PingusSound::init(std::unique_ptr<PingusSoundImpl> s)
 {
   if (!s)
   {
+#if defined(PINGUS_WEB_SOUND)
+    try {
+      PingusSound::init(std::make_unique<PingusSoundSDLMixer>());
+    } catch (std::exception const& err) {
+      log_error("Sound Error: {}", err.what());
+      log_error("Sound will be disabled");
+      PingusSound::init(std::make_unique<PingusSoundDummy>());
+    }
+#else
     if (globals::sound_enabled || globals::music_enabled)
     {
       try {
@@ -48,6 +61,7 @@ PingusSound::init(std::unique_ptr<PingusSoundImpl> s)
     {
       PingusSound::init(std::make_unique<PingusSoundDummy>());
     }
+#endif
   }
   else
   {
@@ -141,4 +155,3 @@ PingusSound::get_master_volume()
 } // namespace pingus::sound
 
 /* EOF */
-

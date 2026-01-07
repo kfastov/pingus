@@ -38,6 +38,10 @@
 #include "pingus/worldmap/worldmap_screen.hpp"
 #include "util/system.hpp"
 
+#ifdef __EMSCRIPTEN__
+extern "C" void pingus_force_idbfs();
+#endif
+
 #if defined(__APPLE__)
 /* Can't use the include, some type names conflict.
    #include <CoreFoundation/CoreFoundation.h>
@@ -438,6 +442,10 @@ PingusMain::parse_args(int argc, char** argv)
 void
 PingusMain::init_path_finder()
 {
+#ifdef __EMSCRIPTEN__
+  pingus_force_idbfs();
+#endif
+
   if (cmd_options.userdir.is_set())
     System::set_userdir(cmd_options.userdir.get());
 
@@ -468,6 +476,8 @@ PingusMain::init_path_finder()
       CFRelease(ref);
       g_path_manager.set_path(resource_path);
     }
+#elif defined(__EMSCRIPTEN__)
+    g_path_manager.set_path("/data");
 #else
     g_path_manager.set_path("data"); // assume game is run from source dir
 #endif
@@ -597,8 +607,13 @@ PingusMain::run(int argc, char** argv)
     }
 
     // init other components
+#ifdef __EMSCRIPTEN__
+    static SavegameManager savegame_manager("savegames/savegames.scm");
+    static StatManager stat_manager("savegames/variables.scm");
+#else
     SavegameManager savegame_manager("savegames/savegames.scm");
     StatManager stat_manager("savegames/variables.scm");
+#endif
 
     // FIXME: turn these into RAII
     Resource::init();
