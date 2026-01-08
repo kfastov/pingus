@@ -20,6 +20,7 @@ project(pingus VERSION 0.8.0)
 include(mk/cmake/TinyCMMC.cmake)
 
 option(PINGUS_WEB "Build Pingus for web (Emscripten)" OFF)
+option(PINGUS_WEB_DEBUG "Enable Emscripten debug checks for web builds" OFF)
 if(EMSCRIPTEN)
   set(PINGUS_WEB ON)
 endif()
@@ -217,13 +218,16 @@ if(PINGUS_WEB)
     "-sALLOW_MEMORY_GROWTH=1"
     "-sFORCE_FILESYSTEM=1"
     "-sDISABLE_EXCEPTION_CATCHING=0"
-    "-sEXCEPTION_DEBUG=1"
-    "-sASSERTIONS=1"
     "-sLEGACY_GL_EMULATION=1"
     "-sMIN_WEBGL_VERSION=1"
     "-sMAX_WEBGL_VERSION=2"
     "-sUSE_LIBJPEG=1"
     "-sENVIRONMENT=web")
+  if(PINGUS_WEB_DEBUG)
+    target_link_options(pingus PRIVATE
+      "-sEXCEPTION_DEBUG=1"
+      "-sASSERTIONS=1")
+  endif()
   add_custom_command(TARGET pingus POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "${CMAKE_CURRENT_SOURCE_DIR}/web/styles.css"
