@@ -19,13 +19,14 @@
 #include <filesystem>
 #include <iostream>
 #include <signal.h>
-
+#include <stdexcept>
 #include <argpp/argpp.hpp>
 #include <logmich/log.hpp>
 #include <strut/from_string.hpp>
 
 #include "editor/editor_level.hpp"
 #include "editor/editor_screen.hpp"
+#include "engine/display/display.hpp"
 #include "engine/input/driver_factory.hpp"
 #include "engine/input/manager.hpp"
 #include "engine/system/sdl_system.hpp"
@@ -39,7 +40,16 @@
 #include "util/system.hpp"
 
 #ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
 extern "C" void pingus_force_idbfs();
+extern "C" EMSCRIPTEN_KEEPALIVE void pingus_toggle_fullscreen()
+{
+  if (!pingus::Display::get_framebuffer())
+  {
+    return;
+  }
+  pingus::config_manager.set_fullscreen(!pingus::config_manager.get_fullscreen());
+}
 #endif
 
 #if defined(__APPLE__)
@@ -571,12 +581,24 @@ PingusMain::run(int argc, char** argv)
     bool fullscreen = cmd_options.fullscreen.is_set() ? cmd_options.fullscreen.get() : false;
     bool resizable  = cmd_options.resizable.is_set()  ? cmd_options.resizable.get()  : true;
 
-    Size screen_size(1024, 768);
+#ifdef __EMSCRIPTEN__
+    if (fullscreen)
+    {
+      cmd_options.fullscreen.set(false);
+      fullscreen = false;
+    }
+#endif
+
+    SDLSystem system;
+
+    Size screen_size;
+    bool screen_size_set = false;
     if (fullscreen)
     {
       if (cmd_options.fullscreen_resolution.is_set())
       {
         screen_size = cmd_options.fullscreen_resolution.get();
+        screen_size_set = true;
       }
     }
     else
@@ -584,10 +606,14 @@ PingusMain::run(int argc, char** argv)
       if (cmd_options.geometry.is_set())
       {
         screen_size = cmd_options.geometry.get();
+        screen_size_set = true;
       }
     }
 
-    SDLSystem system;
+    if (!screen_size_set)
+    {
+      screen_size = Size(1024, 768);
+    }
     try
     {
       system.create_window(fbtype, screen_size, fullscreen, resizable);

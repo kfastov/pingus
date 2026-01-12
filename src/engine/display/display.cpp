@@ -122,8 +122,12 @@ Display::set_video_mode(geom::isize const& size, bool fullscreen, bool resizable
 {
   if (fullscreen)
   {
+#ifdef __EMSCRIPTEN__
+    s_framebuffer->set_video_mode(size, fullscreen, resizable);
+#else
     geom::isize new_size = find_closest_fullscreen_video_mode(size);
     s_framebuffer->set_video_mode(new_size, fullscreen, resizable);
+#endif
   }
   else
   {

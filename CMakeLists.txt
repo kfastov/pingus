@@ -222,6 +222,7 @@ if(PINGUS_WEB)
     "-sMIN_WEBGL_VERSION=1"
     "-sMAX_WEBGL_VERSION=2"
     "-sUSE_LIBJPEG=1"
+    "SHELL:-sEXPORTED_FUNCTIONS=['_main','_pingus_toggle_fullscreen']"
     "-sENVIRONMENT=web")
   if(PINGUS_WEB_DEBUG)
     target_link_options(pingus PRIVATE

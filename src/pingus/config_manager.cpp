@@ -16,6 +16,10 @@
 
 #include "pingus/config_manager.hpp"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
+
 #include <logmich/log.hpp>
 
 #include "engine/display/display.hpp"
@@ -31,8 +35,29 @@ namespace pingus {
 
 ConfigManager config_manager;
 
+#ifdef __EMSCRIPTEN__
+namespace {
+
+bool pingus_get_screen_logical_size(Size* out_size)
+{
+  int css_w = 0;
+  int css_h = 0;
+  emscripten_get_screen_size(&css_w, &css_h);
+  if (css_w <= 0 || css_h <= 0)
+  {
+    return false;
+  }
+  *out_size = Size(css_w, css_h);
+  return true;
+}
+
+} // namespace
+#endif
+
 ConfigManager::ConfigManager() :
   m_opts(),
+  m_windowed_size(),
+  m_windowed_size_valid(false),
   on_master_volume_change(),
   on_sound_volume_change(),
   on_music_volume_change(),
@@ -129,7 +154,25 @@ ConfigManager::set_fullscreen(bool v)
 
   if (v != get_fullscreen())
   {
-    Display::set_video_mode(Display::get_size(), v, false);
+    if (v)
+    {
+      m_windowed_size = Display::get_size();
+      m_windowed_size_valid = true;
+    }
+
+    Size target_size = Display::get_size();
+    if (!v && m_windowed_size_valid)
+    {
+      target_size = m_windowed_size;
+    }
+#ifndef __EMSCRIPTEN__
+    else if (v && m_opts.fullscreen_resolution.is_set())
+    {
+      target_size = m_opts.fullscreen_resolution.get();
+    }
+#endif
+
+    Display::set_video_mode(target_size, v, false);
     on_fullscreen_change(v);
   }
 

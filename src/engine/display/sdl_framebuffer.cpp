@@ -39,6 +39,20 @@ SDL_Rect Intersection(SDL_Rect* r1, SDL_Rect* r2)
   return rect;
 }
 
+#ifdef __EMSCRIPTEN__
+void pingus_set_renderer_logical_size(SDL_Renderer* renderer, geom::isize const& size)
+{
+  if (!renderer)
+  {
+    return;
+  }
+  if (SDL_RenderSetLogicalSize(renderer, size.width(), size.height()) != 0)
+  {
+    log_error("SDL_RenderSetLogicalSize failed: {}", SDL_GetError());
+  }
+}
+#endif
+
 } // namespace
 
 SDLFramebuffer::SDLFramebuffer() :
@@ -205,6 +219,13 @@ SDLFramebuffer::set_video_mode(geom::isize const& size, bool fullscreen, bool re
     }
     else
     {
+#ifdef __EMSCRIPTEN__
+      SDL_SetWindowSize(m_window, size.width(), size.height());
+      if (!is_fullscreen())
+      {
+        SDL_SetWindowFullscreen(m_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+      }
+#else
       SDL_DisplayMode mode;
       mode.w = size.width();
       mode.h = size.height();
@@ -215,8 +236,13 @@ SDLFramebuffer::set_video_mode(geom::isize const& size, bool fullscreen, bool re
       {
         log_error("failed to set display mode: {}", SDL_GetError());
       }
+      SDL_SetWindowSize(m_window, size.width(), size.height());
       SDL_SetWindowFullscreen(m_window, SDL_WINDOW_FULLSCREEN);
+#endif
     }
+#ifdef __EMSCRIPTEN__
+    pingus_set_renderer_logical_size(m_renderer, size);
+#endif
   }
   else
   {
@@ -224,12 +250,19 @@ SDLFramebuffer::set_video_mode(geom::isize const& size, bool fullscreen, bool re
 
     if (fullscreen)
     {
+#ifdef __EMSCRIPTEN__
+      flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+#else
       flags |= SDL_WINDOW_FULLSCREEN;
+#endif
     }
     else if (resizable)
     {
       flags |= SDL_WINDOW_RESIZABLE;
     }
+#ifdef __EMSCRIPTEN__
+    flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+#endif
 
     m_window = SDL_CreateWindow("Pingus " PROJECT_VERSION,
                                 SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
@@ -243,7 +276,11 @@ SDLFramebuffer::set_video_mode(geom::isize const& size, bool fullscreen, bool re
     }
     SDL_SetWindowIcon(m_window, IMG_Load(Pathname("images/icons/pingus.png", Pathname::DATA_PATH).get_sys_path().c_str()));
 
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_ACCELERATED);
+#ifdef __EMSCRIPTEN__
+    pingus_set_renderer_logical_size(m_renderer, size);
+#endif
   }
 }
 

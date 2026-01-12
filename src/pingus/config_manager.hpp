@@ -31,6 +31,8 @@ class ConfigManager
 {
 private:
   Options m_opts;
+  Size m_windowed_size;
+  bool m_windowed_size_valid;
 
 public:
   ConfigManager();

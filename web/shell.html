@@ -160,11 +160,14 @@
         spinnerElement.hidden = true;
       };
 
-      document.getElementById("fullscreen").addEventListener("click", function() {
-        if (Module.requestFullscreen) {
-          Module.requestFullscreen(true, false);
-        }
-      });
+      var fullscreenButton = document.getElementById("fullscreen");
+      if (fullscreenButton) {
+        fullscreenButton.addEventListener("click", function() {
+          if (Module && Module._pingus_toggle_fullscreen) {
+            Module._pingus_toggle_fullscreen();
+          }
+        });
+      }
       document.getElementById("reload").addEventListener("click", function() {
         window.location.reload();
       });
