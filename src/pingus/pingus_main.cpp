@@ -41,7 +41,29 @@
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
+#include <emscripten/html5.h>
 extern "C" void pingus_force_idbfs();
+static EM_BOOL pingus_on_fullscreen_change(int event_type,
+                                           const EmscriptenFullscreenChangeEvent* event,
+                                           void* user_data)
+{
+  (void)event_type;
+  (void)user_data;
+
+  if (!pingus::Display::get_framebuffer())
+  {
+    return EM_FALSE;
+  }
+
+  if (event && !event->isFullscreen && pingus::config_manager.get_fullscreen())
+  {
+    // Keep config in sync when the browser exits fullscreen (e.g. via ESC).
+    pingus::config_manager.set_fullscreen(false);
+  }
+
+  return EM_FALSE;
+}
+
 extern "C" EMSCRIPTEN_KEEPALIVE void pingus_toggle_fullscreen()
 {
   if (!pingus::Display::get_framebuffer())
@@ -647,6 +669,12 @@ PingusMain::run(int argc, char** argv)
     pingus::sound::PingusSound::init();
 
     config_manager.apply(cmd_options);
+
+#ifdef __EMSCRIPTEN__
+    emscripten_set_fullscreenchange_callback(
+      EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr, EM_FALSE,
+      pingus_on_fullscreen_change);
+#endif
 
     // start and run the actual game
     start_game();
