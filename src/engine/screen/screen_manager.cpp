@@ -298,8 +298,12 @@ ScreenManager::process_events()
         switch(event.window.event)
         {
           case SDL_WINDOWEVENT_RESIZED:
+#ifdef __EMSCRIPTEN__
+            break;
+#else
             Display::resize(Size(event.window.data1, event.window.data2));
             break;
+#endif
 
           default:
             break;

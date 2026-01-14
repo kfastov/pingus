@@ -139,6 +139,9 @@
       }
 
       Module.preRun.push(initIdbfs);
+      Module.postRun.push(function() {
+        setupResponsiveCanvas();
+      });
 
       function schedulePersist(reason) {
         if (Module._pingusSyncfs) {
@@ -159,6 +162,174 @@
         Module.setStatus("Exception thrown, see console");
         spinnerElement.hidden = true;
       };
+
+      function setupResponsiveCanvas() {
+        var frame = document.querySelector(".canvas-frame");
+        var stage = document.querySelector(".stage");
+        var controls = document.querySelector(".controls");
+        var canvas = Module.canvas || document.getElementById("canvas");
+        var lastSize = null;
+        var fullscreenWatchActive = false;
+        var fullscreenLastSize = null;
+        if (!frame) {
+          return;
+        }
+
+        var pending = false;
+        function schedule() {
+          if (pending) {
+            return;
+          }
+          pending = true;
+          requestAnimationFrame(function() {
+            pending = false;
+            updateCanvasSize();
+          });
+        }
+
+        function getViewportBox() {
+          if (window.visualViewport) {
+            return {
+              width: window.visualViewport.width,
+              height: window.visualViewport.height,
+              top: window.visualViewport.offsetTop,
+              left: window.visualViewport.offsetLeft
+            };
+          }
+          return {
+            width: document.documentElement.clientWidth,
+            height: document.documentElement.clientHeight,
+            top: 0,
+            left: 0
+          };
+        }
+
+        function applyCanvasSize(width, height) {
+          frame.style.width = width + "px";
+          frame.style.height = height + "px";
+          if (!canvas) {
+            return;
+          }
+          canvas.style.setProperty("width", width + "px", "important");
+          canvas.style.setProperty("height", height + "px", "important");
+        }
+
+        function applyCanvasSizeDeferred(width, height) {
+          lastSize = { width: width, height: height };
+          applyCanvasSize(width, height);
+          requestAnimationFrame(function() {
+            applyCanvasSize(width, height);
+          });
+        }
+
+        function startFullscreenWatch() {
+          if (fullscreenWatchActive) {
+            return;
+          }
+          fullscreenWatchActive = true;
+          requestAnimationFrame(watchFullscreen);
+        }
+
+        function watchFullscreen() {
+          if (!document.fullscreenElement) {
+            fullscreenWatchActive = false;
+            fullscreenLastSize = null;
+            return;
+          }
+          var viewport = getViewportBox();
+          var watchWidth = Math.max(1, Math.floor(viewport.width));
+          var watchHeight = Math.max(1, Math.floor(viewport.height));
+          if (!fullscreenLastSize ||
+              fullscreenLastSize.width !== watchWidth ||
+              fullscreenLastSize.height !== watchHeight) {
+            fullscreenLastSize = { width: watchWidth, height: watchHeight };
+            updateCanvasSize();
+          }
+          requestAnimationFrame(watchFullscreen);
+        }
+
+        function updateCanvasSize() {
+          if (!Module || !Module._pingus_set_window_size || !canvas) {
+            return;
+          }
+
+          if (document.fullscreenElement) {
+            var viewport = getViewportBox();
+            var fullWidth = Math.max(1, Math.floor(viewport.width));
+            var fullHeight = Math.max(1, Math.floor(viewport.height));
+            Module._pingus_set_window_size(fullWidth, fullHeight);
+            if (typeof Browser !== "undefined" && Browser.setCanvasSize) {
+              var dpr = window.devicePixelRatio || 1;
+              var pixelWidth = Math.max(1, Math.floor(fullWidth * dpr));
+              var pixelHeight = Math.max(1, Math.floor(fullHeight * dpr));
+              Browser.setCanvasSize(pixelWidth, pixelHeight, true);
+            }
+            applyCanvasSizeDeferred(fullWidth, fullHeight);
+            startFullscreenWatch();
+            return;
+          }
+
+          var frameRect = frame.getBoundingClientRect();
+          var availableWidth = frameRect.width;
+          var availableHeight = 0;
+          if (stage) {
+            var stageStyle = getComputedStyle(stage);
+            var paddingX = (parseFloat(stageStyle.paddingLeft) || 0) + (parseFloat(stageStyle.paddingRight) || 0);
+            var paddingY = (parseFloat(stageStyle.paddingTop) || 0) + (parseFloat(stageStyle.paddingBottom) || 0);
+            availableWidth = Math.max(0, stage.clientWidth - paddingX);
+            availableHeight = Math.max(0, stage.clientHeight - paddingY);
+          }
+          var viewportBox = getViewportBox();
+
+          if (controls) {
+            var controlsRect = controls.getBoundingClientRect();
+            var controlsStyle = getComputedStyle(controls);
+            var marginTop = parseFloat(controlsStyle.marginTop) || 0;
+            availableHeight = Math.max(0, controlsRect.top - frameRect.top - marginTop);
+          } else {
+            availableHeight = Math.max(0, viewportBox.top + viewportBox.height - frameRect.top);
+          }
+
+          var targetWidth = Math.max(1, Math.floor(availableWidth));
+          var targetHeight = Math.max(1, Math.floor(targetWidth * 3 / 4));
+          if (availableHeight > 0 && targetHeight > availableHeight) {
+            targetHeight = Math.floor(availableHeight);
+            targetWidth = Math.floor(targetHeight * 4 / 3);
+          }
+
+          Module._pingus_set_window_size(targetWidth, targetHeight);
+          applyCanvasSizeDeferred(targetWidth, targetHeight);
+        }
+
+        if (canvas && typeof MutationObserver !== "undefined") {
+          var styleObserver = new MutationObserver(function() {
+            if (!lastSize) {
+              return;
+            }
+            var desiredWidth = lastSize.width + "px";
+            var desiredHeight = lastSize.height + "px";
+            if (canvas.style.width === desiredWidth && canvas.style.height === desiredHeight) {
+              return;
+            }
+            applyCanvasSize(lastSize.width, lastSize.height);
+          });
+          styleObserver.observe(canvas, { attributes: true, attributeFilter: ["style"] });
+        }
+        if (typeof ResizeObserver !== "undefined") {
+          var viewportObserver = new ResizeObserver(function() {
+            schedule();
+          });
+          viewportObserver.observe(document.documentElement);
+        }
+
+        schedule();
+        window.addEventListener("resize", schedule);
+        window.addEventListener("orientationchange", schedule);
+        document.addEventListener("fullscreenchange", schedule);
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", schedule);
+        }
+      }
 
       var fullscreenButton = document.getElementById("fullscreen");
       if (fullscreenButton) {

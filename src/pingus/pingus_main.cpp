@@ -72,6 +72,19 @@ extern "C" EMSCRIPTEN_KEEPALIVE void pingus_toggle_fullscreen()
   }
   pingus::config_manager.set_fullscreen(!pingus::config_manager.get_fullscreen());
 }
+
+extern "C" EMSCRIPTEN_KEEPALIVE void pingus_set_window_size(int width, int height)
+{
+  if (!pingus::Display::get_framebuffer())
+  {
+    return;
+  }
+  if (width <= 0 || height <= 0)
+  {
+    return;
+  }
+  pingus::Display::resize(pingus::Size(width, height));
+}
 #endif
 
 #if defined(__APPLE__)

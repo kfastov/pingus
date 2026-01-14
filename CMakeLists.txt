@@ -222,8 +222,10 @@ if(PINGUS_WEB)
     "-sMIN_WEBGL_VERSION=1"
     "-sMAX_WEBGL_VERSION=2"
     "-sUSE_LIBJPEG=1"
-    "SHELL:-sEXPORTED_FUNCTIONS=['_main','_pingus_toggle_fullscreen']"
+    "SHELL:-sEXPORTED_FUNCTIONS=['_main','_pingus_toggle_fullscreen','_pingus_set_window_size']"
     "-sENVIRONMENT=web")
+  set_property(TARGET pingus APPEND PROPERTY LINK_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html")
   if(PINGUS_WEB_DEBUG)
     target_link_options(pingus PRIVATE
       "-sEXCEPTION_DEBUG=1"

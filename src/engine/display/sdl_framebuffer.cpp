@@ -221,10 +221,7 @@ SDLFramebuffer::set_video_mode(geom::isize const& size, bool fullscreen, bool re
     {
 #ifdef __EMSCRIPTEN__
       SDL_SetWindowSize(m_window, size.width(), size.height());
-      if (!is_fullscreen())
-      {
-        SDL_SetWindowFullscreen(m_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-      }
+      SDL_SetWindowFullscreen(m_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 #else
       SDL_DisplayMode mode;
       mode.w = size.width();

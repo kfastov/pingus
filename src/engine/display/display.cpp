@@ -59,9 +59,11 @@ Display::get_size()
 void
 Display::resize(geom::isize const& size_)
 {
+  geom::isize size(std::max(1, size_.width()), std::max(1, size_.height()));
+#ifndef __EMSCRIPTEN__
   // Limit Window size so some reasonable minimum
-  geom::isize size(size_.width() < 640 ? 640 : size_.width(),
-            size_.height() < 480 ? 480 : size_.height());
+  size = geom::isize(std::max(640, size.width()), std::max(480, size.height()));
+#endif
 
   Display::set_video_mode(size, is_fullscreen(), true);
 
